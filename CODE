@@ -1,0 +1,46 @@
+import cv2
+import RPi.GPIO as GPIO
+from time import sleep
+from ultralytics import YOLO
+# Load the YOLOv8 model
+model = YOLO('100ep.pt')
+# Setup GPIO for servo motor
+SERVO_PIN = 17 # Change to your servo pin
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(SERVO_PIN, GPIO.OUT)
+servo = GPIO.PWM(SERVO_PIN, 50) # 50Hz PWM frequency
+servo.start(0)
+def set_servo_angle(angle):
+ duty_cycle = (angle / 18.0) + 2.5 
+servo.ChangeDutyCycle(duty_cycle)
+ sleep(1)
+ servo.ChangeDutyCycle(0)
+# Open the video file
+video_path = 0 # Use camera
+cap = cv2.VideoCapture(video_path)
+# Loop through the video frames
+while cap.isOpened():
+ success, frame = cap.read()
+ if success:
+ results = model(frame)
+ if results[0].boxes:
+ annotated_frame = results[0].plot()
+ cv2.imshow("YOLOv8 Inference", annotated_frame)
+
+ if results[0].boxes[0].cls == 0: # Mature pineapple
+ print("Ready to harvest")
+ set_servo_angle(90) # Rotate servo 90 degrees 
+elif results[0].boxes[0].cls == 1: # Immature pineapple
+ print("Not ready to harvest")
+ set_servo_angle(0) # Rotate back to original position
+ else:
+ cv2.imshow("YOLOv8 Inference", frame)
+ if cv2.waitKey(100) & 0xFF == ord("q"):
+ break
+ else:
+ break
+# Cleanup
+cap.release()
+servo.stop()
+GPIO.cleanup()
+cv2.destroyAllWindows()
